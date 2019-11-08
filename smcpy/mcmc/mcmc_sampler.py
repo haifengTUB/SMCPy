@@ -112,7 +112,6 @@ class MCMCSampler:
         self.n = len(data)
         self.p = len(params)
 
-        # Verify data format - for now, must be a list of crack lengths
         self.data = self._verify_data_format(data) # TODO: allow for samples
 
         # Initialize pymc model and MCMC database
@@ -400,6 +399,32 @@ class MCMCSampler:
         self.pymc_mod_order = pymc_mod_order
 
 
+    def get_state(self, keys):
+        '''
+        Returns a dictionary with current parameter state of the markov chain.
+        Must sample before using this method.
+        '''
+        try:
+            stochastics = self.MCMC.db.getstate()['stochastics'] 
+        except AttributeError as e:
+            raise AttributeError('Must sample first: {}'.format(e))
+
+        params = {key: stochastics[key] for key in keys}
+
+        return params
+
+
+    def get_log_likelihood(self):
+        '''
+        Returns model likelihood.
+        '''
+        try:
+            logp = self.MCMC.logp
+        except AttributeError as e:
+            raise AttributeError('Must sample first: {}'.format(e))
+        return logp
+
+
     def generate_pymc_(self, params, q0=None):
         '''
         Creates PyMC objects for each param in  dictionary
@@ -504,7 +529,6 @@ class MCMCSampler:
         '''
         Ensures that data is a single list.
         '''
-        # For now, data should be a list of floats (e.g., of crack lengths)
         if type(data) == list or type(data) == np.ndarray:
             return np.array(data)
         else:
