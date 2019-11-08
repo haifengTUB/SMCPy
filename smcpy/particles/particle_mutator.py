@@ -43,40 +43,41 @@ class ParticleMutator():
     determine the distribution along the temperature schedule path.
     '''
 
-    def __init__(self, step, mcmc, num_mcmc_steps, mpi_comm=SingleRankComm()):
+    def __init__(self, step, mcmc, measurement_std_dev=None,
+                 mpi_comm=SingleRankComm()):
         self.step = step
-        self._comm = mpi_comm
         self._mcmc = mcmc
-        self._step_method = 'smc_metropolis'
-        self.num_mcmc_steps = num_mcmc_steps
+        self.measurement_std_dev = measurement_std_dev
+        self._comm = mpi_comm
+
         self._size = self._comm.Get_size()
         self._rank = self._comm.Get_rank()
 
-    def mutate_particles(self, measurement_std_dev=None, temperature_step=1):
+        self._step_method = 'smc_metropolis'
+
+    def mutate_particles(self, num_mcmc_steps, temperature_step=1):
         '''
         Predicts next distribution along the temperature schedule path using
         the MCMC kernel.
 
-        :param measurement_std_dev: standard deviation of the measurement error;
-            if unknown, set to None and it will be sampled along with other
-            model parameters.
-        :type measurement_std_dev: float or None
+        :param num_mcmc_steps: number samples added to markov chain before
+            returning a mutated parameter vector
+        :type num_mcmc_steps: int
         :param temperature_step: difference in temp schedule between steps
         :type temperature_step: float
 
         :Returns: An SMCStep class instance that contains all particles after
             mutation.
         '''
+        self.num_mcmc_steps = num_mcmc_steps
         covariance = self._compute_step_covariance()
         particles = self._partition_and_scatter_particles()
-        mcmc = copy(self._mcmc)
 
         new_particles = []
         for particle in particles:
-            new_particles.append(self._mutate_particle(mcmc, particle,
-                                                       measurement_std_dev,
-                                                       temperature_step,
-                                                       covariance))
+            mutated_particle = self._mutate_particle(particle, temperature_step,
+                                                     covariance)
+            new_particles.append(mutated_particle)
 
         new_particles = self._gather_and_concat_particles(new_particles)
         mutation_count = len(set(particles + new_particles)) - len(particles)
@@ -85,26 +86,33 @@ class ParticleMutator():
 
         return self.step
 
-    def _mutate_particle(self, mcmc, particle, measurement_std_dev,
-                         temperature_step, covariance):
-        if measurement_std_dev is None:
+    def _mutate_particle(self, particle, temperature_step, covariance):
+        new_params, new_likelihood = self._run_mcmc(particle, temperature_step,
+                                                    covariance)
+        if particle.params != new_params:
+            particle = copy(particle)
+            particle.params = new_params
+            particle.log_like = new_likelihood
+
+        return particle
+
+    def _run_mcmc(self, particle, temperature_step, covariance):
+        if self.measurement_std_dev is None:
             std_dev0 = particle.params['std_dev']
         else:
-            std_dev0 = measurement_std_dev
+            std_dev0 = self.measurement_std_dev
 
-        mcmc.generate_pymc_model(fix_var=bool(measurement_std_dev),
+        mcmc = copy(self._mcmc)
+        mcmc.generate_pymc_model(fix_var=bool(self.measurement_std_dev),
                                  std_dev0=std_dev0, q0=particle.params)
         mcmc.sample(self.num_mcmc_steps, burnin=0, cov=covariance,
                     step_method=self._step_method, verbose=-1,
                     phi=temperature_step)
+
         new_params = mcmc.get_state(particle.params.keys())
+        new_likelihood = mcmc.get_log_likelihood()
 
-        if particle.params != new_params:
-            particle = copy(particle)
-            particle.params = new_params
-            particle.log_like = mcmc.get_log_likelihood()
-
-        return particle
+        return new_params, new_likelihood
 
     def _gather_and_concat_particles(self, new_particles):
         new_particles = self._comm.gather(new_particles, root=0)
