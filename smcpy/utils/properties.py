@@ -1,3 +1,5 @@
+import numpy as np
+
 from checks import Checks
 from ..hdf5.hdf5_storage import HDF5Storage
 from ..smc.smc_step import SMCStep
@@ -54,7 +56,17 @@ class Properties(Checks):
 
     @temp_schedule.setter
     def temp_schedule(self, temp_schedule):
-        self._temp_schedule = temp_schedule
+        if temp_schedule is None:
+            self._temp_schedule = np.linspace(0., 1., self.num_time_steps)
+        else:
+            if len(temp_schedule) != self.num_time_steps:
+                err_msg = 'len(temp_schedule) must equal num_time_steps'
+                raise ValueError(err_msg)
+            if temp_schedule[0] != 0. or temp_schedule[-1] != 0.:
+                err_msg = 'temp_schedule must begin at 0 and end at 1'
+                raise ValueError(err_msg)
+            self._temp_schedule = temp_schedule
+        return None
 
     @property
     def num_mcmc_steps(self):

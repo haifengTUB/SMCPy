@@ -86,9 +86,9 @@ class SMCSampler(Properties):
         return mcmc
 
     def sample(self, num_particles, num_time_steps, num_mcmc_steps,
-               measurement_std_dev=None, ess_threshold=None,
-               proposal_center=None, proposal_scales=None, restart_time_step=1,
-               hdf5_to_load=None, autosave_file=None):
+               temperature_schedule=None, measurement_std_dev=None,
+               ess_threshold=None, proposal_center=None, proposal_scales=None,
+               restart_time_step=1, hdf5_to_load=None, autosave_file=None):
         '''
         Driver method that performs Sequential Monte Carlo sampling.
 
@@ -98,7 +98,11 @@ class SMCSampler(Properties):
             is used to transition between prior and posterior distributions.
         :type num_time_steps: int
         :param num_mcmc_steps: number of mcmc steps to take during mutation
-        :param num_mcmc_steps: int
+        :type num_mcmc_steps: int
+        :param temperature_schedule: a monotonically increasing set of numbers
+            with length equal to num_time_steps; first entry must be 0 and last
+            must be 1. Defaults to np.linspace(0, 1, num_time_steps).
+        :type temperature_schedule: list or array
         :param measurement_std_dev: standard deviation of the measurement error;
             if unknown, set to None and it will be estimated along with other
             model parameters.
@@ -136,7 +140,8 @@ class SMCSampler(Properties):
         self.autosaver = autosave_file
         self.num_time_steps = num_time_steps
         self.restart_time_step = restart_time_step
-        self.temp_schedule = np.linspace(0., 1., num_time_steps)
+        self.temp_schedule = temperature_schedule
+
         start_time_step = 1
         if self.restart_time_step == 1:
             initializer = ParticleInitializer(self._mcmc, self.temp_schedule,
