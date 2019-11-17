@@ -62,7 +62,7 @@ class Properties(Checks):
             if len(temp_schedule) != self.num_time_steps:
                 err_msg = 'len(temp_schedule) must equal num_time_steps'
                 raise ValueError(err_msg)
-            if temp_schedule[0] != 0. or temp_schedule[-1] != 0.:
+            if temp_schedule[0] != 0. or temp_schedule[-1] != 1.:
                 err_msg = 'temp_schedule must begin at 0 and end at 1'
                 raise ValueError(err_msg)
             self._temp_schedule = temp_schedule

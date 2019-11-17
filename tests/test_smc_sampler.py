@@ -2,6 +2,7 @@ from smcpy.smc.smc_sampler import SMCSampler
 from smcpy.mcmc.mcmc_sampler import MCMCSampler
 import h5py
 import os
+import pytest
 
 
 def test_setup_communicator():
@@ -22,7 +23,8 @@ def test_autosaver(sampler):
     num_mcmc_steps = 1
     noise_stddev = 0.5
     sampler.sample(num_particles, num_time_steps, num_mcmc_steps,
-                   noise_stddev, ess_threshold=num_particles * 0.5,
+                   measurement_std_dev=noise_stddev,
+                   ess_threshold=num_particles * 0.5,
                    autosave_file='autosaver.hdf5')
     with h5py.File('autosaver.hdf5', 'r') as hdf:
         group1 = hdf.get("steps")
@@ -50,7 +52,8 @@ def test_restart_sampling(sampler):
     num_mcmc_steps = 1
     noise_stddev = 0.5
     sampler.sample(num_particles, num_time_steps, num_mcmc_steps,
-                   noise_stddev, restart_time_step=restart_time_step,
+                   measurement_std_dev=noise_stddev,
+                   restart_time_step=restart_time_step,
                    hdf5_to_load='autosaver.hdf5',
                    autosave_file='restart.hdf5')
     with h5py.File('restart.hdf5', 'r') as hdf:
@@ -59,3 +62,32 @@ def test_restart_sampling(sampler):
         assert len(group1_items) == restart_time_step - 1
     os.remove('autosaver.hdf5')
     os.remove('restart.hdf5')
+
+
+def test_custom_temperature_schedule(sampler):
+    num_particles = 5
+    num_time_steps = 3
+    restart_time_step = 2
+    num_mcmc_steps = 1
+    noise_stddev = 0.5
+    temperature_schedule = [0., 0.2, 1.0]
+
+    sampler.sample(num_particles, num_time_steps, num_mcmc_steps,
+                   measurement_std_dev=noise_stddev,
+                   temperature_schedule=temperature_schedule)
+    assert sampler.temp_schedule == temperature_schedule
+
+
+@pytest.mark.parametrize('num_time_steps', [2, 4])
+def test_custom_temperature_schedule(sampler, num_time_steps):
+    num_particles = 5
+    restart_time_step = 2
+    num_mcmc_steps = 1
+    noise_stddev = 0.5
+    temperature_schedule = [0., 0.2, 1.0]
+
+    with pytest.raises(ValueError):
+        sampler.sample(num_particles, num_time_steps, num_mcmc_steps,
+                       measurement_std_dev=noise_stddev,
+                       temperature_schedule=temperature_schedule)
+ 
