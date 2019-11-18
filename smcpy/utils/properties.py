@@ -40,9 +40,12 @@ class Properties(Checks):
 
     @temp_schedule.setter
     def temp_schedule(self, temp_schedule):
+        temp_schedule = list(temp_schedule)
         if temp_schedule[0] != 0. or temp_schedule[-1] != 1.:
             err_msg = 'temp_schedule must begin at 0 and end at 1'
             raise ValueError(err_msg)
+        if not temp_schedule == sorted(temp_schedule):
+            raise ValueError('temp_schedule must be monotonically increasing.')
         self._temp_schedule = temp_schedule
         self._num_time_steps = len(temp_schedule)
         return None

@@ -85,3 +85,16 @@ def test_custom_temperature_schedule_sets_num_time_steps(sampler):
                    measurement_std_dev=noise_stddev,
                    temperature_schedule=temperature_schedule)
     assert sampler.num_time_steps == 3
+
+
+def test_bad_custom_temperature_schedule_raises_error(sampler):
+    num_particles = 5
+    num_mcmc_steps = 1
+    noise_stddev = 0.5
+    temperature_schedule = [0., 0.2, 0.1, 1.0]
+
+    with pytest.raises(ValueError):
+        sampler.sample(num_particles, num_mcmc_steps=num_mcmc_steps,
+                       measurement_std_dev=noise_stddev,
+                       temperature_schedule=temperature_schedule)
+
