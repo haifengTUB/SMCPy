@@ -17,15 +17,14 @@ param_priors = {'K': ['Uniform', 0.0, 10.0],
 
 # SMC sampling
 num_particles = 500
-num_time_steps = 20
 num_mcmc_steps = 1
+temperature_schedule = np.linspace(0, 1, 20)
 
 # Autosaver
 smc = SMCSampler(displacement_data, model, param_priors)
-step_list = smc.sample(num_particles, num_time_steps, num_mcmc_steps,
+step_list = smc.sample(num_particles, num_mcmc_steps, temperature_schedule,
                        measurement_std_dev=noise_stddev,
-                       ess_threshold=num_particles * 0.5,
-                       autosave_file='autosaver.hdf5')
+                       ess_threshold=num_particles * 0.5)
 
 try:
     # Calculate means

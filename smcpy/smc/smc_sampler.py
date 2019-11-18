@@ -85,23 +85,19 @@ class SMCSampler(Properties):
                            storage_backend='ram')
         return mcmc
 
-    def sample(self, num_particles, num_time_steps, num_mcmc_steps,
-               temperature_schedule=None, measurement_std_dev=None,
-               ess_threshold=None, proposal_center=None, proposal_scales=None,
-               restart_time_step=1, hdf5_to_load=None, autosave_file=None):
+    def sample(self, num_particles, num_mcmc_steps, temperature_schedule,
+               measurement_std_dev=None, ess_threshold=None,
+               proposal_center=None, proposal_scales=None, restart_time_step=1,
+               hdf5_to_load=None, autosave_file=None):
         '''
         Driver method that performs Sequential Monte Carlo sampling.
 
         :param num_particles: number of particles to use during sampling
         :type num_particles: int
-        :param num_time_steps: number of time steps in temperature schedule that
-            is used to transition between prior and posterior distributions.
-        :type num_time_steps: int
         :param num_mcmc_steps: number of mcmc steps to take during mutation
         :type num_mcmc_steps: int
-        :param temperature_schedule: a monotonically increasing set of numbers
-            with length equal to num_time_steps; first entry must be 0 and last
-            must be 1. Defaults to np.linspace(0, 1, num_time_steps).
+        :param temperature_schedule: a monotonically increasing series of
+            numbers; first entry must be 0 and last must be 1.
         :type temperature_schedule: list or array
         :param measurement_std_dev: standard deviation of the measurement error;
             if unknown, set to None and it will be estimated along with other
@@ -124,7 +120,7 @@ class SMCSampler(Properties):
         :type proposal_scales: dict
         :param restart_time_step: time step at which to restart sampling;
             default is zero, meaning the sampling process starts at the prior
-            distribution; note that restart_time_step < num_time_steps. The
+            distribution; note that restart_time_step < len(temp_schedule). The
             step at restart_time is retained, and the sampling begins at the
             next step (t=restart_time_step+1).
         :type restart_time_step: int
@@ -137,10 +133,9 @@ class SMCSampler(Properties):
             and their past generations at every time step.
         '''
 
-        self.autosaver = autosave_file
-        self.num_time_steps = num_time_steps
-        self.restart_time_step = restart_time_step
         self.temp_schedule = temperature_schedule
+        self.autosaver = autosave_file
+        self.restart_time_step = restart_time_step
 
         start_time_step = 1
         if self.restart_time_step == 1:
@@ -165,7 +160,7 @@ class SMCSampler(Properties):
 
         updater = ParticleUpdater(self.step, ess_threshold, self._comm)
 
-        p_bar = tqdm(range(num_time_steps)[start_time_step + 1:])
+        p_bar = tqdm(range(self.num_time_steps)[start_time_step + 1:])
         last_ess = num_particles
         for t in p_bar:
             temperature_step = self.temp_schedule[t] - self.temp_schedule[t - 1]

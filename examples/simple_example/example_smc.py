@@ -19,10 +19,10 @@ if __name__ == '__main__':
 
     # run smc
     num_particles = 1000
-    num_time_steps = 20
     num_mcmc_steps = 2
+    temperature_schedule = np.linspace(0, 1, 20)
     smc = SMCSampler(noisy_data, my_model, param_priors)
-    step_list = smc.sample(num_particles, num_time_steps, num_mcmc_steps,
+    step_list = smc.sample(num_particles, num_mcmc_steps, temperature_schedule,
                            std_dev, ess_threshold=0.5 * num_particles,
                            autosave_file='test.h5')
 

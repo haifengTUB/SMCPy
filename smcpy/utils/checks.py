@@ -61,4 +61,4 @@ class Checks(object):
 
     @staticmethod
     def _raise_out_of_bounds_error(input_):
-        raise ValueError('%s cannot be greater than num_time_steps.' % input)
+        raise ValueError('%s cannot be greater than num_time_steps.' % input_)

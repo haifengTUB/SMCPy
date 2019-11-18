@@ -19,16 +19,16 @@ if __name__ == '__main__':
     
     # run smc
     num_particles = 1000
-    num_time_steps = 20
     num_mcmc_steps = 1
+    temperature_schedule = np.linspace(0, 1, 20)
     smc = SMCSampler(y_noisy, m, param_priors)
-    step_list = smc.sample(num_particles, num_time_steps, num_mcmc_steps,
+    step_list = smc.sample(num_particles, num_mcmc_steps, temperature_schedule,
                                 std_dev, ess_threshold=0.5*num_particles,
                                 autosave_file='smc.h5')
 
     # try a restart
-    restart_step_list = smc.sample(num_particles, num_time_steps,
-                                   num_mcmc_steps,
+    restart_step_list = smc.sample(num_particles, num_mcmc_steps,
+                                   temperature_schedule,
                                    std_dev, ess_threshold=0.5*num_particles,
                                    restart_time_step=10, hdf5_to_load='smc.h5',
                                    autosave_file='smc_restart.h5')

@@ -10,8 +10,8 @@ class Properties(Checks):
     def __init__(self):
         super(Properties, self).__init__()
         self._num_particles = 1
-        self._num_time_steps = 1
         self._temp_schedule = [0.0, 1.0]
+        self._num_time_steps = 2
         self._num_mcmc_steps = 1
         self._ess_threshold = 0
         self._autosaver = None
@@ -35,38 +35,25 @@ class Properties(Checks):
         return None
 
     @property
-    def num_time_steps(self):
-        return self._num_time_steps
-
-    @num_time_steps.setter
-    def num_time_steps(self, num_time_steps):
-        input_ = 'num_time_steps'
-        if not self._is_integer(num_time_steps):
-            self._raise_type_error(input_, 'integer')
-        if self._is_negative(num_time_steps):
-            self._raise_negative_error(input_)
-        if self._is_zero(num_time_steps):
-            self._raise_zero_error(input_)
-        self._num_time_steps = num_time_steps
-        return None
-
-    @property
     def temp_schedule(self):
         return self._temp_schedule
 
     @temp_schedule.setter
     def temp_schedule(self, temp_schedule):
-        if temp_schedule is None:
-            self._temp_schedule = np.linspace(0., 1., self.num_time_steps)
-        else:
-            if len(temp_schedule) != self.num_time_steps:
-                err_msg = 'len(temp_schedule) must equal num_time_steps'
-                raise ValueError(err_msg)
-            if temp_schedule[0] != 0. or temp_schedule[-1] != 1.:
-                err_msg = 'temp_schedule must begin at 0 and end at 1'
-                raise ValueError(err_msg)
-            self._temp_schedule = temp_schedule
+        if temp_schedule[0] != 0. or temp_schedule[-1] != 1.:
+            err_msg = 'temp_schedule must begin at 0 and end at 1'
+            raise ValueError(err_msg)
+        self._temp_schedule = temp_schedule
+        self._num_time_steps = len(temp_schedule)
         return None
+
+    @property
+    def num_time_steps(self):
+        return self._num_time_steps
+
+    @num_time_steps.setter
+    def num_time_steps(self, num_time_steps):
+        self._num_time_steps = num_time_steps
 
     @property
     def num_mcmc_steps(self):
