@@ -64,8 +64,8 @@ class ParticleUpdater():
         :type temperature_step: float
         '''
         for p in self.step.get_particles():
-            temp_weight = p.log_weight
-            p.log_weight = temp_weight + p.log_like * temperature_step
+            p.log_weight = p.log_weight + p.log_like * temperature_step
+        self.step.normalize_log_weights()
         return self.step
 
     @_mpi_decorator

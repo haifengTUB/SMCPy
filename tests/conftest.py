@@ -122,11 +122,13 @@ def part_mutator(filled_step, mcmc_obj):
 
 @pytest.fixture
 def part_updater(filled_step):
+    filled_step.normalize_log_weights()
     return ParticleUpdater(filled_step, 2.5, mpi_comm=SingleRankComm())
 
 
 @pytest.fixture
 def part_updater_high_ess_threshold(filled_step):
+    filled_step.normalize_log_weights()
     return ParticleUpdater(filled_step, 10, mpi_comm=SingleRankComm())
 
 

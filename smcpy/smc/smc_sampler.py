@@ -137,8 +137,8 @@ class SMCSampler(Properties):
         self.autosaver = autosave_file
         self.restart_time_step = restart_time_step
 
-        start_time_step = 1
         if self.restart_time_step == 1:
+            start_time_step = 1
             initializer = ParticleInitializer(self._mcmc, self.temp_schedule,
                                               self._comm)
             initializer.set_proposal_distribution(proposal_center,
@@ -232,7 +232,7 @@ class SMCSampler(Properties):
         if self._rank == 0:
             step = SMCStep()
             step.set_particles(np.concatenate(particles))
-            step.normalize_step_log_weights()
+            step.normalize_log_weights()
         else:
             step = None
         return step

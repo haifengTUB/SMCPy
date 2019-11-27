@@ -67,19 +67,14 @@ def test_get_covariance(linear_step):
     arr_alm_eq(linear_step.get_covariance(), exp_cov)
 
 
-def test_normalize_step_log_weights(mixed_weight_step):
-    mixed_weight_step.normalize_step_log_weights()
-    for index, p in enumerate(mixed_weight_step.particles):
-        p.log_weight = np.exp(p.log_weight)
-    assert sum(mixed_weight_step.get_log_weights()) == 1
-
-
-def test_normalize_step_weights(mixed_weight_step):
-    normalized_weights = mixed_weight_step.normalize_step_weights()
+def test_get_normalized_step_weights(mixed_weight_step):
+    mixed_weight_step.normalize_log_weights()
+    normalized_weights = mixed_weight_step.get_norm_weights()
     assert sum(normalized_weights) == 1
 
 
 def test_compute_ess(filled_step):
+    filled_step.normalize_log_weights()
     assert filled_step.compute_ess() == pytest.approx(5.0)
 
 

@@ -33,7 +33,7 @@ AGREEMENT.
 from copy import deepcopy
 
 
-class Particle():
+class Particle(object):
     '''
     Class defining data structure of an SMC particle (a member of an SMC
     particle chain).
@@ -49,9 +49,9 @@ class Particle():
         :param log_like: the log likelihood of the particle
         :type log_like: float or int
         '''
-        self.params = self._check_params(params)
-        self.log_weight = self._check_log_weight(log_weight)
-        self.log_like = self._check_log_like(log_like)
+        self.params = params
+        self.log_weight = log_weight
+        self.log_like = log_like
 
     def print_particle_info(self):
         '''
@@ -67,22 +67,50 @@ class Particle():
         '''
         return deepcopy(self)
 
-    @staticmethod
-    def _check_params(params):
+    @property
+    def params(self):
+        return self._params
+
+    @params.setter
+    def params(self, params):
         if type(params) is not dict:
             raise TypeError('Input "params" must be a dictionary.')
-        return params
+        self._params = params
 
-    @staticmethod
-    def _check_log_weight(log_weight):
-        if not isinstance(log_weight, int) and not isinstance(log_weight, float):
+    @property
+    def log_weight(self):
+        return self._log_weight
+
+    @log_weight.setter
+    def log_weight(self, log_weight):
+        num = any([isinstance(log_weight, int), isinstance(log_weight, float)])
+        if not num:
             raise TypeError('Input "log_weight" must be an integer or float')
-        return log_weight
+        self._log_weight = log_weight
 
-    @staticmethod
-    def _check_log_like(log_like):
+    @property
+    def norm_log_weight(self):
+        try:
+            return self._norm_log_weight
+        except AttributeError:
+            msg = "Particle has no normalized weight; if particle is a " + \
+                  "member of a SMCStep object, call " + \
+                  "SMCStep.normalize_log_weights() before attempting to " + \
+                  "use particle's normalized weight."
+            raise AttributeError(msg)
+
+    @norm_log_weight.setter
+    def norm_log_weight(self, norm_log_weight):
+        self._norm_log_weight = norm_log_weight
+
+    @property
+    def log_like(self):
+        return self._log_like
+
+    @log_like.setter
+    def log_like(self, log_like):
         if not isinstance(log_like, float) and not isinstance(log_like, int):
             raise TypeError('Input "log_like" must be an integer or float')
         if log_like > 0:
             raise ValueError('Input "log_like" must be negative.')
-        return log_like
+        self._log_like = log_like
