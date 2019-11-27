@@ -17,3 +17,12 @@ class StepList():
     def trim(self, i=None):
         self._list = self._list[:i]
         return None
+
+    def compute_bayes_evidence(self):
+        '''
+        Computes the Bayes evidence, or normalizing constant according to the eq
+            Z_T = Z_0 * prod( sum( unormalized weights for each step ) )
+        where Z_0 = int( p(theta) dtheta) = 1.
+        '''
+        sum_unnormalized = [sum(step.get_weights()) for step in self._list]
+        return reduce(lambda x, y: x * y, sum_unnormalized)
