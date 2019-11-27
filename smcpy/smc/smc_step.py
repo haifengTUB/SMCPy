@@ -260,7 +260,7 @@ class SMCStep(Checks):
         particles = self.particles
         num_particles = len(particles)
         uniform_weight = 1. / num_particles
-        weights = np.exp(self.get_norm_log_weights())
+        weights = self.get_norm_weights()
         weights_cs = np.cumsum(weights)
         intervals = zip(np.insert(weights_cs, 0, 0)[:-1], weights_cs)
 

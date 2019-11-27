@@ -87,13 +87,14 @@ def test_get_param_dicts(filled_step):
 
 
 def test_resample(mixed_step):
-    np.random.seed(1)
     prior_particle = mixed_step.particles
+    mixed_step.normalize_log_weights()
     mixed_step.resample()
     assert mixed_step.particles != prior_particle
 
 
 def test_resample_uniform(mixed_step):
+    mixed_step.normalize_log_weights()
     mixed_step.resample()
     log_weights = mixed_step.get_log_weights()
     np.testing.assert_almost_equal(max(log_weights) - min(log_weights), 0)
