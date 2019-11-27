@@ -103,114 +103,6 @@ class SMCStep(Checks):
         '''
         return copy.deepcopy(self)
 
-    def get_likes(self):
-        '''
-        Returns a list of likelihoods for each particle in the step
-        '''
-        return [np.exp(p.log_like) for p in self.particles]
-
-    def get_log_likes(self):
-        '''
-        Returns a list of log(likelihoods) for each particle in the step
-        '''
-        return [p.log_like for p in self.particles]
-
-    def get_mean(self):
-        '''
-        Returns the estimated mean of each parameter in step.
-        '''
-        normalized_weights = self.normalize_step_weights()
-        param_names = self.particles[0].params.keys()
-        mean = {}
-        for pn in param_names:
-            mean[pn] = []
-            for i, p in enumerate(self.particles):
-                mean[pn].append(normalized_weights[i] * p.params[pn])
-            mean[pn] = np.sum(mean[pn])
-        return mean
-
-    def get_variance(self):
-        '''
-        Returns the estimated variance of each parameter in step. Uses weighted
-        sample formula https://en.wikipedia.org/wiki/Sample_mean_and_covariance 
-        '''
-        normalized_weights = self.normalize_step_weights()
-        mean = self.get_mean()
-        param_names = self.particles[0].params.keys()
-        var = {}
-        for pn in param_names:
-            var[pn] = []
-            for i, p in enumerate(self.particles):
-                moment = (p.params[pn] - mean[pn])**2
-                var[pn].append(normalized_weights[i] * moment)
-            var[pn] = np.sum(var[pn])
-            var[pn] = 1 / (1 - np.sum(normalized_weights**2)) * var[pn]
-        return var
-
-    def get_std_dev(self):
-        '''
-        Returns the estimated variance of each parameter in step. 
-        '''
-        return {k: np.sqrt(v) for k, v in self.get_variance().iteritems()}
-
-    def get_log_weights(self):
-        '''
-        Returns a list of the log weights of each particle in the step
-        '''
-        return [p.log_weight for p in self.particles]
-
-    def get_covariance(self):
-        '''
-        Estimates the covariance matrix for the step. Uses weighted sample
-        formula https://en.wikipedia.org/wiki/Sample_mean_and_covariance
-        '''
-        particle_list = self.particles
-        normalized_weights = self.normalize_step_weights()
-        means = np.array(self.get_mean().values())
-
-        cov_list = []
-        for i, p in enumerate(particle_list):
-            param_vector = p.params.values()
-            diff = (param_vector - means).reshape(-1, 1)
-            R = np.dot(diff, diff.transpose())
-            cov_list.append(normalized_weights[i] * R)
-        cov_matrix = np.sum(cov_list, axis=0)
-        cov_matrix = cov_matrix * 1 / (1 - np.sum(normalized_weights**2))
-
-        if not self._is_positive_definite(cov_matrix):
-            msg = 'current step cov not pos def, setting to identity matrix'
-            warnings.warn(msg)
-            cov_matrix = np.eye(cov_matrix.shape[0])
-
-        return cov_matrix
-
-    def normalize_step_log_weights(self):
-        '''
-        Normalizes log weights, and then transforms back into to log space for
-        all particles inside the step
-        '''
-        normalized_weights = self.normalize_step_weights()
-        for index, p in enumerate(self.particles):
-            p.log_weight = np.log(normalized_weights[index])
-        return None
-
-    def normalize_step_weights(self):
-        '''
-        Normalizes log weights of all particles inside the step
-        '''
-        log_weights = np.array(self.get_log_weights())
-        shifted_weights = np.exp(log_weights - max(log_weights))
-        normalized_weights = shifted_weights / sum(shifted_weights)
-        return normalized_weights
-
-    def compute_ess(self):
-        '''
-        Computes the effective sample size (ess) of the step based on log weight
-        '''
-        self.normalize_step_log_weights()
-        log_weights = self.get_log_weights()
-        return 1 / np.sum([np.exp(w)**2 for w in log_weights])
-
     def get_params(self, key):
         '''
         Retrieves parameter values in every particle of a specific parameter
@@ -234,6 +126,131 @@ class SMCStep(Checks):
         '''
         return self.particles
 
+    def get_mean(self):
+        '''
+        Returns the estimated mean of each parameter in step.
+        '''
+        normalized_weights = self.get_normalized_step_weights()
+        param_names = self.particles[0].params.keys()
+        mean = {}
+        for pn in param_names:
+            mean[pn] = []
+            for i, p in enumerate(self.particles):
+                mean[pn].append(normalized_weights[i] * p.params[pn])
+            mean[pn] = np.sum(mean[pn])
+        return mean
+
+    def get_std_dev(self):
+        '''
+        Returns the estimated variance of each parameter in step. 
+        '''
+        return {k: np.sqrt(v) for k, v in self.get_variance().iteritems()}
+
+    def get_variance(self):
+        '''
+        Returns the estimated variance of each parameter in step. Uses weighted
+        sample formula https://en.wikipedia.org/wiki/Sample_mean_and_covariance 
+        '''
+        normalized_weights = self.get_normalized_step_weights()
+        mean = self.get_mean()
+        param_names = self.particles[0].params.keys()
+        var = {}
+        for pn in param_names:
+            var[pn] = []
+            for i, p in enumerate(self.particles):
+                moment = (p.params[pn] - mean[pn])**2
+                var[pn].append(normalized_weights[i] * moment)
+            var[pn] = np.sum(var[pn])
+            var[pn] = 1 / (1 - np.sum(normalized_weights**2)) * var[pn]
+        return var
+
+    def get_covariance(self):
+        '''
+        Estimates the covariance matrix for the step. Uses weighted sample
+        formula https://en.wikipedia.org/wiki/Sample_mean_and_covariance
+        '''
+        particle_list = self.particles
+        normalized_weights = self.get_normalized_step_weights()
+        means = np.array(self.get_mean().values())
+
+        cov_list = []
+        for i, p in enumerate(particle_list):
+            param_vector = p.params.values()
+            diff = (param_vector - means).reshape(-1, 1)
+            R = np.dot(diff, diff.transpose())
+            cov_list.append(normalized_weights[i] * R)
+        cov_matrix = np.sum(cov_list, axis=0)
+        cov_matrix = cov_matrix * 1 / (1 - np.sum(normalized_weights**2))
+
+        if not self._is_positive_definite(cov_matrix):
+            msg = 'current step cov not pos def, setting to identity matrix'
+            warnings.warn(msg)
+            cov_matrix = np.eye(cov_matrix.shape[0])
+
+        return cov_matrix
+
+    def get_likes(self):
+        '''
+        Returns a list of likelihoods for each particle in the step
+        '''
+        return [np.exp(p.log_like) for p in self.particles]
+
+    def get_log_likes(self):
+        '''
+        Returns a list of log(likelihoods) for each particle in the step
+        '''
+        return [p.log_like for p in self.particles]
+
+    def get_weights(self):
+        '''
+        Returns a list of weights for each particle in the step
+        '''
+        return [np.exp(p.log_weight) for p in self.particles]
+
+    def get_log_weights(self):
+        '''
+        Returns a list of the log weights of each particle in the step
+        '''
+        return [p.log_weight for p in self.particles]
+
+    def get_norm_weights(self):
+        '''
+        Returns a list of the normalized weights of each particle in the step
+        '''
+        return [np.exp(p.norm_log_weight) for p in self.particles]
+
+    def get_norm_log_weights(self):
+        '''
+        Returns a list of the noralized log weights of each particle in the step
+        '''
+        return [p.norm_log_weight for p in self.particles]
+
+    def normalize_log_weights(self):
+        '''
+        Normalizes log weights, and then transforms back into to log space for
+        all particles inside the step
+        '''
+        normalized_weights = self.get_normalized_step_weights()
+        for index, p in enumerate(self.particles):
+            p.norm_log_weight = np.log(normalized_weights[index])
+        return None
+
+    def get_normalized_step_weights(self):
+        '''
+        Normalizes log weights of all particles inside the step
+        '''
+        log_weights = np.array(self.get_log_weights())
+        shifted_weights = np.exp(log_weights - max(log_weights))
+        normalized_weights = shifted_weights / sum(shifted_weights)
+        return normalized_weights
+
+    def compute_ess(self):
+        '''
+        Computes the effective sample size (ess) of the step based on log weight
+        '''
+        norm_weights = self.get_norm_weights()
+        return 1 / np.sum([w**2 for w in norm_weights])
+
     def resample(self):  # issue here
         '''
         Resamples the step based on normalized weights. Assigns discrete
@@ -242,23 +259,22 @@ class SMCStep(Checks):
         '''
         particles = self.particles
         num_particles = len(particles)
+        uniform_weight = 1. / num_particles
         weights = np.exp(self.get_log_weights())
         weights_cs = np.cumsum(weights)
-        # intervals based on weights to use for discrete probability draw
         intervals = zip(np.insert(weights_cs, 0, 0)[:-1], weights_cs)
-        # generate random numbers, iterate to find intervals for resample
+
         R = np.random.uniform(0, 1, [num_particles, ])
+
         new_particles = []
-        uniform_weight = 1. / num_particles
         for r in R:
             for i, (a, b) in enumerate(intervals):
 
                 if a <= r < b:
-                    # resample
                     new_particles.append(particles[i].copy())
-                    # assign uniform weight
                     new_particles[-1].log_weight = uniform_weight
                     break
+
         self.particles = new_particles
         return None
 
@@ -334,7 +350,7 @@ class SMCStep(Checks):
         tril = np.tril(np.arange((L - 1)**2).reshape([L - 1, L - 1]) + 1)
         iplts = [i for i in tril.flatten() if i > 0]
 
-        norm_weights = self.normalize_step_weights()
+        norm_weights = self.get_norm_weights()
         means = self.get_mean()
         for i in zip(iplts, ikeys):
             iplt = i[0]     # subplot index
@@ -342,44 +358,46 @@ class SMCStep(Checks):
             ikey2 = i[1][0]  # key index for yparam
             key1 = param_names[ikey1]
             key2 = param_names[ikey2]
-            ax = {key1 + '+' + key2: fig.add_subplot(L - 1, L - 1, iplt)}
+            ax = {key12: fig.add_subplot(L - 1, L - 1, iplt)}
+
             # get list of all particle params for key1, key2 combinations
             pkey1 = []
             pkey2 = []
             for p in particles:
                 pkey1.append(p.params[key1])
                 pkey2.append(p.params[key2])
-            # plot parameter combos with weight as color
 
+            # plot parameter combos with weight as color
             def rnd_to_sig(x):
                 return round(x, -int(np.floor(np.log10(abs(x)))) + 1)
-            sc = ax[key1 + '+' + key2].scatter(pkey1, pkey2, c=norm_weights, vmin=0.0,
-                                               vmax=rnd_to_sig(max(norm_weights)))
-            ax[key1 + '+' + key2].axvline(means[key1], color='C1', linestyle='--')
-            ax[key1 + '+' + key2].axhline(means[key2], color='C1', linestyle='--')
-            ax[key1 + '+' + key2].set_xlabel(label_dict[key1])
-            ax[key1 + '+' + key2].set_ylabel(label_dict[key2])
+            key12 = key12
+            sc = ax[key12].scatter(pkey1, pkey2, c=norm_weights, vmin=0.0,
+                                   vmax=rnd_to_sig(max(norm_weights)))
+            ax[key12].axvline(means[key1], color='C1', linestyle='--')
+            ax[key12].axhline(means[key2], color='C1', linestyle='--')
+            ax[key12].set_xlabel(label_dict[key1])
+            ax[key12].set_ylabel(label_dict[key2])
 
             # if provided, set x y lims
             if param_lims is not None:
-                ax[key1 + '+' + key2].set_xlim(lim_dict[key1])
-                ax[key1 + '+' + key2].set_ylim(lim_dict[key2])
+                ax[key12].set_xlim(lim_dict[key1])
+                ax[key12].set_ylim(lim_dict[key2])
             # if provided set font sizes
             if tick_size is not None:
-                ax[key1 + '+' + key2].tick_params(labelsize=tick_size)
+                ax[key12].tick_params(labelsize=tick_size)
             if label_size is not None:
-                ax[key1 + '+' + key2].xaxis.label.set_size(label_size)
-                ax[key1 + '+' + key2].yaxis.label.set_size(label_size)
+                ax[key12].xaxis.label.set_size(label_size)
+                ax[key12].yaxis.label.set_size(label_size)
             # if provided, set x ticks
             if nbins is not None:
-                ax[key1 + '+' + key2].locator_params(axis='x', nbins=bin_dict[key1])
-                ax[key1 + '+' + key2].locator_params(axis='y', nbins=bin_dict[key2])
+                ax[key12].locator_params(axis='x', nbins=bin_dict[key1])
+                ax[key12].locator_params(axis='y', nbins=bin_dict[key2])
 
         fig.tight_layout()
 
         # colorbar
         if L <= 2:
-            cb = plt.colorbar(sc, ax=ax[key1 + '+' + key2])
+            cb = plt.colorbar(sc, ax=ax[key12])
         else:
             ax1_position = fig.axes[0].get_position()
             ax3_position = fig.axes[2].get_position()
