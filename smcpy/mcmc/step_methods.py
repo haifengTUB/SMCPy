@@ -748,7 +748,7 @@ class SMC_Metropolis(StepMethod):
         self._current_iter = 0
 
         self._proposal_deviate = np.zeros(self.dim)
-        self.chain_mean = np.asmatrix(np.zeros(self.dim))
+        self.chain_mean = np.zeros([1, self.dim])
         self._trace = []
 
         if self.verbose >= 2:

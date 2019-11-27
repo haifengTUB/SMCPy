@@ -29,9 +29,15 @@ PRIOR RECIPIENT, TO THE EXTENT PERMITTED BY LAW.  RECIPIENT'S SOLE REMEDY FOR
 ANY SUCH MATTER SHALL BE THE IMMEDIATE, UNILATERAL TERMINATION OF THIS
 AGREEMENT.
 '''
+import numpy as np
+import imp
+
+from copy import copy
+from tqdm import tqdm
 
 from ..mcmc.mcmc_sampler import MCMCSampler
 from ..smc.smc_step import SMCStep
+from ..smc.step_list import StepList
 from ..hdf5.hdf5_storage import HDF5Storage
 from ..utils.properties import Properties
 from ..utils.progress_bar import set_bar
@@ -39,9 +45,6 @@ from ..utils.single_rank_comm import SingleRankComm
 from ..particles.particle_initializer import ParticleInitializer
 from ..particles.particle_updater import ParticleUpdater
 from ..particles.particle_mutator import ParticleMutator
-from tqdm import tqdm
-import numpy as np
-import imp
 
 
 class SMCSampler(Properties):
@@ -52,7 +55,7 @@ class SMCSampler(Properties):
     def __init__(self, data, model, param_priors):
         self._comm, self._size, self._rank = self.setup_communicator()
         self._mcmc = self.setup_mcmc_sampler(data, model, param_priors)
-        self._step_list = []
+        self._step_list = StepList()
         super(SMCSampler, self).__init__()
 
     @staticmethod
@@ -146,16 +149,14 @@ class SMCSampler(Properties):
             particles = initializer.initialize_particles(measurement_std_dev,
                                                          num_particles)
             self.step = self._initialize_step(particles)
-            self._add_step_to_step_list(self.step)
+            self._step_list.add_step(copy(self.step))
             self._autosave_step(1)
 
         else:
             start_time_step = restart_time_step
-            step_list = self.load_step_list(hdf5_to_load)
-            self.step_list = self.trim_step_list(step_list,
-                                                 self.restart_time_step,
-                                                 self._comm)
-            self.step = self.step_list[-1].copy()
+            self._step_list._list = self.load_step_list(hdf5_to_load)
+            self._step_list.trim(self.restart_time_step - 1)
+            self.step = copy(self._step_list[-1])
             self._autosave_step_list()
 
         updater = ParticleUpdater(self.step, ess_threshold, self._comm)
@@ -171,7 +172,7 @@ class SMCSampler(Properties):
             self.step = mutator.mutate_particles(measurement_std_dev,
                                                  self.temp_schedule[t])
             self._autosave_step(t)
-            self._add_step_to_step_list(self.step)
+            self._step_list.add_step(copy(self.step))
             
             if self._rank == 0:
                 set_bar(p_bar, t, last_ess, updater._ess,
@@ -202,7 +203,7 @@ class SMCSampler(Properties):
             hdf5.close()
             print 'Step list loaded from %s.' % h5_file
         else:
-            step_list = None
+            step_list = [None]
         return step_list
 
     @staticmethod
@@ -223,7 +224,7 @@ class SMCSampler(Properties):
 
         if self._rank == 0:
             hdf5 = HDF5Storage(h5_file, mode='w')
-            hdf5.write_step_list(self.step_list)
+            hdf5.write_step_list(self._step_list)
             hdf5.close()
         return None
 
@@ -237,11 +238,6 @@ class SMCSampler(Properties):
             step = None
         return step
 
-    def _add_step_to_step_list(self, step):
-        if self._rank == 0:
-            self._step_list.append(step.copy())
-        return None
-
     def _autosave_step(self, step_index):
         if self._rank == 0 and self._autosaver is not None:
             self.autosaver.write_step(self.step, step_index)
@@ -254,5 +250,5 @@ class SMCSampler(Properties):
 
     def _autosave_step_list(self):
         if self._rank == 0 and self._autosaver is not None:
-            self.autosaver.write_step_list(self.step_list)
+            self.autosaver.write_step_list(self._step_list)
         return None

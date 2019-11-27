@@ -251,7 +251,7 @@ class SMCStep(Checks):
         norm_weights = self.get_norm_weights()
         return 1 / np.sum([w**2 for w in norm_weights])
 
-    def resample(self):  # issue here
+    def resample(self):
         '''
         Resamples the step based on normalized weights. Assigns discrete
         probabilities to each particle (sum to 1), resample from this discrete
@@ -260,7 +260,7 @@ class SMCStep(Checks):
         particles = self.particles
         num_particles = len(particles)
         uniform_weight = 1. / num_particles
-        weights = np.exp(self.get_log_weights())
+        weights = np.exp(self.get_norm_log_weights())
         weights_cs = np.cumsum(weights)
         intervals = zip(np.insert(weights_cs, 0, 0)[:-1], weights_cs)
 
@@ -358,6 +358,7 @@ class SMCStep(Checks):
             ikey2 = i[1][0]  # key index for yparam
             key1 = param_names[ikey1]
             key2 = param_names[ikey2]
+            key12 = key1 + '+' + key2
             ax = {key12: fig.add_subplot(L - 1, L - 1, iplt)}
 
             # get list of all particle params for key1, key2 combinations
@@ -370,7 +371,6 @@ class SMCStep(Checks):
             # plot parameter combos with weight as color
             def rnd_to_sig(x):
                 return round(x, -int(np.floor(np.log10(abs(x)))) + 1)
-            key12 = key12
             sc = ax[key12].scatter(pkey1, pkey2, c=norm_weights, vmin=0.0,
                                    vmax=rnd_to_sig(max(norm_weights)))
             ax[key12].axvline(means[key1], color='C1', linestyle='--')
